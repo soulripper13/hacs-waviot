@@ -1,6 +1,7 @@
+```python
 # coordinator.py - Fixed monthly usage calculation to use last reading before period boundaries for more accurate cumulative differences
 import aiohttp
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import logging
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import UPDATE_INTERVAL, BASE_URL
@@ -113,9 +114,9 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         one_hour_ago = now - timedelta(hours=1)
         one_day_ago = now - timedelta(days=1)
         latest_timestamp, latest_value = readings[-1]
-        latest_dt = datetime.fromtimestamp(latest_timestamp)
+        latest_dt = datetime.fromtimestamp(latest_timestamp, timezone.utc)
         self.data["latest"] = latest_value
-        self.data["last_update"] = latest_dt.isoformat()
+        self.data["last_update"] = latest_dt
         # Hourly usage
         hourly_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_hour_ago), None)
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
@@ -138,3 +139,4 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             self.data["latest"], self.data["hourly"], self.data["daily"],
             self.data["month_current"], self.data["month_previous"]
         )
+```
