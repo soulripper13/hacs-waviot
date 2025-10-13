@@ -7,7 +7,7 @@ from .const import UPDATE_INTERVAL, BASE_URL
 _LOGGER = logging.getLogger(__name__)
 
 class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch WAVIoT modem and energy data."""
+    """Coordinator to fetch WAVIoT modem and energy data safely."""
 
     def __init__(self, hass, api_key, modem_id):
         self.hass = hass
@@ -22,36 +22,47 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self):
-        """Fetch modem info and energy channel safely."""
+        """Fetch modem info and channel readings safely."""
         async with aiohttp.ClientSession() as session:
-
             # --- Modem info ---
             try:
-                url = f"{BASE_URL}modem/info/?id={self.modem_id}&key={self.api_key}"
+                url = f"{BASE_URL}modem/info/?id={self.modem_id.lower()}&key={self.api_key}"
                 _LOGGER.debug("Fetching modem info from URL: %s", url)
 
                 async with session.get(url) as resp:
                     _LOGGER.debug("HTTP status: %s", resp.status)
-                    info = await resp.json()
-                    _LOGGER.debug("Modem info response: %s", info)
+                    text = await resp.text()
+                    _LOGGER.debug("Raw response text: %s", text)
 
-                    if not info:
-                        raise UpdateFailed("Modem info returned None")
-                    if info.get("status") != "ok":
-                        raise UpdateFailed(f"Modem info status not ok: {info}")
+                    try:
+                        info = await resp.json()
+                        _LOGGER.debug("Parsed JSON: %s", info)
+                    except Exception as e:
+                        _LOGGER.error("JSON parsing failed: %s", e)
+                        raise UpdateFailed(f"Failed parsing modem info JSON: {e}")
 
-                    modem = info.get("modem")
+                    modem = info.get("modem") if info else None
                     if not modem:
-                        raise UpdateFailed(f"No 'modem' data in response: {info}")
+                        _LOGGER.warning("No modem data returned from API")
+                        self.data.update({
+                            "battery": None,
+                            "temperature": None,
+                            "readings": [],
+                            "latest": None,
+                            "hourly": None,
+                            "daily": None,
+                            "month_current": None,
+                            "month_previous": None,
+                            "last_update": None,
+                        })
+                        return self.data
 
                     battery_raw = modem.get("battery")
+                    temperature = modem.get("temperature")
                     self.data["battery"] = float(battery_raw) if battery_raw is not None else None
-                    self.data["temperature"] = modem.get("temperature")
-                    _LOGGER.debug(
-                        "Modem battery: %s, temperature: %s",
-                        self.data["battery"],
-                        self.data["temperature"],
-                    )
+                    self.data["temperature"] = temperature
+                    _LOGGER.debug("Battery: %s, Temperature: %s", self.data["battery"], temperature)
+
             except Exception as e:
                 _LOGGER.error("Exception fetching modem info: %s", e)
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
@@ -64,25 +75,30 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
 
                 async with session.get(url) as resp:
                     _LOGGER.debug("Channel HTTP status: %s", resp.status)
-                    ch_data = await resp.json()
-                    _LOGGER.debug("Channel response: %s", ch_data)
+                    text = await resp.text()
+                    _LOGGER.debug("Raw channel response: %s", text)
 
-                    if not ch_data or ch_data.get("status") != "ok":
-                        raise UpdateFailed(f"Channel data status invalid: {ch_data}")
+                    try:
+                        ch_data = await resp.json()
+                        _LOGGER.debug("Parsed channel JSON: %s", ch_data)
+                    except Exception as e:
+                        _LOGGER.error("JSON parsing failed for channel: %s", e)
+                        self.data["readings"] = []
+                        return self.data
 
-                    values = ch_data.get("values", {})
+                    values = ch_data.get("values", {}) if ch_data else {}
                     readings = []
                     for ts, val in values.items():
                         try:
                             readings.append((int(ts), float(val)))
                         except Exception as ex:
-                            _LOGGER.warning("Skipping invalid reading: ts=%s val=%s (%s)", ts, val, ex)
-                            continue
+                            _LOGGER.warning("Skipping invalid reading ts=%s val=%s (%s)", ts, val, ex)
                     readings.sort(key=lambda x: x[0])
                     self.data["readings"] = readings
+
             except Exception as e:
                 _LOGGER.error("Exception fetching channel values: %s", e)
-                raise UpdateFailed(f"Failed fetching channel values: {e}")
+                self.data["readings"] = []
 
             # --- Compute usage metrics ---
             self._compute_usage()
@@ -90,7 +106,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         return self.data
 
     def _compute_usage(self):
-        """Compute hourly, daily, current & previous month usage."""
+        """Compute latest, hourly, daily, current & previous month usage."""
         readings = self.data.get("readings", [])
         if not readings:
             _LOGGER.debug("No readings available to compute usage.")
@@ -133,6 +149,8 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         self.data["month_current"] = round(latest_value - val_current_month, 3) if val_current_month else None
         self.data["month_previous"] = round(val_current_month - val_prev_month, 3) if val_prev_month else None
 
-        _LOGGER.debug("Usage computed: latest=%s hourly=%s daily=%s month_current=%s month_previous=%s",
-                      self.data["latest"], self.data["hourly"], self.data["daily"],
-                      self.data["month_current"], self.data["month_previous"])
+        _LOGGER.debug(
+            "Usage computed: latest=%s hourly=%s daily=%s month_current=%s month_previous=%s",
+            self.data["latest"], self.data["hourly"], self.data["daily"],
+            self.data["month_current"], self.data["month_previous"]
+        )
