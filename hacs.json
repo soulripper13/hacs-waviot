@@ -1,0 +1,8 @@
+{
+  "name": "WAVIoT Updater",
+  "content_in_root": false,
+  "domains": ["waviot_updater"],
+  "country": ["all"],
+  "homeassistant": "2023.12.0",
+  "render_readme": true
+}
