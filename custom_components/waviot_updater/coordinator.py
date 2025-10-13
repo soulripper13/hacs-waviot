@@ -7,7 +7,7 @@ from .const import UPDATE_INTERVAL, BASE_URL
 _LOGGER = logging.getLogger(__name__)
 
 class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch WAVIoT modem data."""
+    """Coordinator to fetch WAVIoT modem and energy data."""
 
     def __init__(self, hass, api_key, modem_id):
         self.hass = hass
@@ -22,17 +22,26 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self):
-        """Fetch modem info and energy data safely."""
+        """Fetch modem info and energy channel safely."""
         async with aiohttp.ClientSession() as session:
-            # --- Modem info: battery & temperature ---
+            # --- Modem info ---
             try:
                 url = f"{BASE_URL}modem/info/?id={self.modem_id}&key={self.api_key}"
                 async with session.get(url) as resp:
+                    if resp.status != 200:
+                        raise UpdateFailed(f"Modem info HTTP {resp.status}")
                     info = await resp.json()
                     if not info or info.get("status") != "ok":
-                        raise UpdateFailed(f"Invalid modem info response: {info}")
-                    modem = info.get("modem", {})
-                    self.data["battery"] = modem.get("battery")
+                        raise UpdateFailed(f"Modem info status invalid: {info}")
+                    modem = info.get("modem")
+                    if not modem:
+                        raise UpdateFailed(f"No 'modem' data in response: {info}")
+
+                    # Battery (cast string to float)
+                    battery_raw = modem.get("battery")
+                    self.data["battery"] = float(battery_raw) if battery_raw is not None else None
+
+                    # Temperature
                     self.data["temperature"] = modem.get("temperature")
             except Exception as e:
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
@@ -42,13 +51,20 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 channel_id = "electro_ac_p_lsum_t1"
                 url = f"{BASE_URL}data/get_modem_channel_values/?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
                 async with session.get(url) as resp:
+                    if resp.status != 200:
+                        raise UpdateFailed(f"Channel info HTTP {resp.status}")
                     ch_data = await resp.json()
                     if not ch_data or ch_data.get("status") != "ok":
-                        raise UpdateFailed(f"Invalid channel response: {ch_data}")
+                        raise UpdateFailed(f"Channel data status invalid: {ch_data}")
+
                     values = ch_data.get("values", {})
-                    readings = sorted(
-                        ((int(ts), float(v)) for ts, v in values.items()), key=lambda x: x[0]
-                    )
+                    readings = []
+                    for ts, val in values.items():
+                        try:
+                            readings.append((int(ts), float(val)))
+                        except Exception:
+                            continue
+                    readings.sort(key=lambda x: x[0])
                     self.data["readings"] = readings
             except Exception as e:
                 raise UpdateFailed(f"Failed fetching channel values: {e}")
@@ -59,7 +75,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         return self.data
 
     def _compute_usage(self):
-        """Compute hourly, daily, and monthly usage safely."""
+        """Compute hourly, daily, current & previous month usage."""
         readings = self.data.get("readings", [])
         if not readings:
             self.data.update({
@@ -82,35 +98,21 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         self.data["latest"] = latest_value
         self.data["last_update"] = latest_dt.isoformat()
 
-        # --- Hourly usage ---
-        hourly_val = next(
-            (v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_hour_ago),
-            None,
-        )
+        # Hourly usage
+        hourly_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_hour_ago), None)
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
 
-        # --- Daily usage ---
-        daily_val = next(
-            (v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_day_ago),
-            None,
-        )
+        # Daily usage
+        daily_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_day_ago), None)
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
 
-        # --- Monthly usage ---
+        # Monthly usage
         month_start = datetime(now.year, now.month, 1)
         prev_month = month_start - timedelta(days=1)
         prev_month_start = datetime(prev_month.year, prev_month.month, 1)
 
-        # Current month start value
-        val_month_start = next(
-            (v for t, v in readings if datetime.fromtimestamp(t) >= month_start),
-            None,
-        )
-        # Previous month start value
-        val_prev_month_start = next(
-            (v for t, v in readings if prev_month_start <= datetime.fromtimestamp(t) < month_start),
-            None,
-        )
+        val_current_month = next((v for t, v in readings if datetime.fromtimestamp(t) >= month_start), None)
+        val_prev_month = next((v for t, v in readings if prev_month_start <= datetime.fromtimestamp(t) < month_start), None)
 
-        self.data["month_current"] = round(latest_value - val_month_start, 3) if val_month_start else None
-        self.data["month_previous"] = round(val_month_start - val_prev_month_start, 3) if val_prev_month_start else None
+        self.data["month_current"] = round(latest_value - val_current_month, 3) if val_current_month else None
+        self.data["month_previous"] = round(val_current_month - val_prev_month, 3) if val_prev_month else None
