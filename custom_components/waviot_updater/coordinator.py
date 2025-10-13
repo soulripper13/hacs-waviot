@@ -1,4 +1,3 @@
-```python
 # coordinator.py - Fixed monthly usage calculation to use last reading before period boundaries for more accurate cumulative differences
 import aiohttp
 from datetime import datetime, timedelta, timezone
@@ -139,4 +138,3 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             self.data["latest"], self.data["hourly"], self.data["daily"],
             self.data["month_current"], self.data["month_previous"]
         )
-```
