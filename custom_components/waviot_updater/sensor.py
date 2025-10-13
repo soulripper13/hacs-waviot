@@ -2,42 +2,59 @@ from homeassistant.helpers.entity import Entity
 from .const import DOMAIN
 
 SENSOR_TYPES = {
-    "battery": ("Battery", "%", "voltage"),
-    "temperature": ("Temperature", "°C", "temperature"),
-    "latest": ("Total Energy (T1)", "kWh", "energy"),
-    "hourly": ("Hourly Usage (T1)", "kWh", "energy"),
-    "daily": ("Daily Usage (T1)", "kWh", "energy"),
-    "month_current": ("Current Month Usage", "kWh", "energy"),
-    "month_previous": ("Previous Month Usage", "kWh", "energy"),
+    "battery": {"name": "Battery Voltage", "unit": "V", "device_class": "voltage"},
+    "temperature": {"name": "Temperature", "unit": "°C", "device_class": "temperature"},
+    "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy"},
+    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy"},
+    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy"},
+    "month_current": {"name": "Current Month Usage", "unit": "kWh", "device_class": "energy"},
+    "month_previous": {"name": "Previous Month Usage", "unit": "kWh", "device_class": "energy"},
+    "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp"},
 }
 
+
 async def async_setup_entry(hass, entry, async_add_entities):
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    entities = [WaviotSensor(coordinator, key) for key in SENSOR_TYPES]
-    async_add_entities(entities)
+    """Set up sensors for a Waviot modem entry."""
+    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    sensors = []
+
+    for key, meta in SENSOR_TYPES.items():
+        sensors.append(WaviotSensor(coordinator, key, meta))
+
+    async_add_entities(sensors, update_before_add=True)
+
 
 class WaviotSensor(Entity):
-    def __init__(self, coordinator, sensor_type):
+    """Representation of a WAVIoT sensor."""
+
+    def __init__(self, coordinator, sensor_type, meta):
         self.coordinator = coordinator
         self.sensor_type = sensor_type
-        self._attr_name = f"WAVIoT {sensor_type}"
+        self.meta = meta
+        self._attr_name = f"{coordinator.modem_id} {meta['name']}"
         self._attr_unique_id = f"{coordinator.modem_id}_{sensor_type}"
 
     @property
-    def state(self):
-        return self.coordinator.data.get(self.sensor_type)
+    def name(self):
+        return self._attr_name
 
     @property
-    def name(self):
-        return SENSOR_TYPES[self.sensor_type][0]
+    def unique_id(self):
+        return self._attr_unique_id
+
+    @property
+    def state(self):
+        value = self.coordinator.data.get(self.sensor_type)
+        return value
 
     @property
     def unit_of_measurement(self):
-        return SENSOR_TYPES[self.sensor_type][1]
+        return self.meta.get("unit")
 
     @property
     def device_class(self):
-        return SENSOR_TYPES[self.sensor_type][2]
+        return self.meta.get("device_class")
 
     async def async_update(self):
+        """Request coordinator update."""
         await self.coordinator.async_request_refresh()
