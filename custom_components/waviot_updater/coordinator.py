@@ -1,10 +1,11 @@
-# coordinator.py - Fixed monthly usage calculation to use last reading before period boundaries for more accurate cumulative differences
+# coordinator.py - Fetches full history but filters to past 31 days client-side for efficiency
 import aiohttp
 from datetime import datetime, timedelta
 import logging
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import UPDATE_INTERVAL, BASE_URL
 _LOGGER = logging.getLogger(__name__)
+
 class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator to fetch WAVIoT modem and energy data safely."""
     def __init__(self, hass, api_key, modem_id):
@@ -18,6 +19,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             name=f"WAVIoT Modem {modem_id}",
             update_interval=timedelta(seconds=UPDATE_INTERVAL),
         )
+
     async def _async_update_data(self):
         """Fetch modem info and channel readings safely."""
         # Safety check to ensure self.data is a dict
@@ -61,7 +63,9 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             except Exception as e:
                 _LOGGER.error("Exception fetching modem info: %s", e)
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
+
             # --- Energy channel: electro_ac_p_lsum_t1 ---
+            # Fetch full history (API returns from first sample to now)
             try:
                 channel_id = "electro_ac_p_lsum_t1"
                 url = f"{BASE_URL}data/get_modem_channel_values/?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
@@ -78,20 +82,26 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                         self.data["readings"] = []
                         return self.data
                     values = ch_data.get("values", {}) if ch_data else {}
-                    readings = []
+                    all_readings = []
                     for ts, val in values.items():
                         try:
-                            readings.append((int(ts), float(val)))
+                            all_readings.append((int(ts), float(val)))
                         except Exception as ex:
                             _LOGGER.warning("Skipping invalid reading ts=%s val=%s (%s)", ts, val, ex)
+                    # Filter to past 31 days client-side for efficiency
+                    cutoff_ts = int((datetime.now() - timedelta(days=31)).timestamp())
+                    readings = [r for r in all_readings if r[0] >= cutoff_ts]
                     readings.sort(key=lambda x: x[0])
                     self.data["readings"] = readings
+                    _LOGGER.debug("Fetched and filtered to %d readings for past 31 days", len(readings))
             except Exception as e:
                 _LOGGER.error("Exception fetching channel values: %s", e)
                 self.data["readings"] = []
+
             # --- Compute usage metrics ---
             self._compute_usage()
         return self.data
+
     def _compute_usage(self):
         """Compute latest, hourly, daily, current & previous month usage."""
         # Additional safety check
@@ -116,10 +126,10 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         latest_dt = datetime.fromtimestamp(latest_timestamp)
         self.data["latest"] = latest_value
         self.data["last_update"] = latest_dt.isoformat()
-        # Hourly usage
+        # Hourly usage (last hour)
         hourly_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_hour_ago), None)
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
-        # Daily usage
+        # Daily usage (last day)
         daily_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) <= one_day_ago), None)
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
         # Monthly usage
