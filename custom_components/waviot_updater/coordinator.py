@@ -1,3 +1,4 @@
+# coordinator.py - Fixed monthly usage calculation to use last reading before period boundaries for more accurate cumulative differences
 import aiohttp
 from datetime import datetime, timedelta
 import logging
@@ -125,10 +126,13 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         month_start = datetime(now.year, now.month, 1)
         prev_month = month_start - timedelta(days=1)
         prev_month_start = datetime(prev_month.year, prev_month.month, 1)
-        val_current_month = next((v for t, v in readings if datetime.fromtimestamp(t) >= month_start), None)
-        val_prev_month = next((v for t, v in readings if prev_month_start <= datetime.fromtimestamp(t) < month_start), None)
-        self.data["month_current"] = round(latest_value - val_current_month, 3) if val_current_month else None
-        self.data["month_previous"] = round(val_current_month - val_prev_month, 3) if val_prev_month else None
+        # For current month: last value before month_start
+        val_current_start = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) < month_start), None)
+        self.data["month_current"] = round(latest_value - val_current_start, 3) if val_current_start is not None else None
+        # For previous month: last before month_start and last before prev_month_start
+        val_prev_end = val_current_start
+        val_prev_start = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t) < prev_month_start), None)
+        self.data["month_previous"] = round(val_prev_end - val_prev_start, 3) if val_prev_end is not None and val_prev_start is not None else None
         _LOGGER.debug(
             "Usage computed: latest=%s hourly=%s daily=%s month_current=%s month_previous=%s",
             self.data["latest"], self.data["hourly"], self.data["daily"],
