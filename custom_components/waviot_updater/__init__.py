@@ -1,31 +1,27 @@
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from .const import DOMAIN, CONF_API_KEY, CONF_MODEM_ID
-from .coordinator import WaviotDataCoordinator
-import logging
-
-_LOGGER = logging.getLogger(__name__)
+from homeassistant.config_entries import ConfigEntry
+from .const import DOMAIN
+from .coordinator import WaviotDataUpdateCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up component from an entry."""
-    api_key = entry.data[CONF_API_KEY]
-    modem_id = entry.data[CONF_MODEM_ID]
+    """Set up WAVIoT integration from config entry."""
+    api_key = entry.data["api_key"]
+    modem_id = entry.data["modem_id"]
 
-    coordinator = WaviotDataCoordinator(hass, api_key, modem_id)
+    coordinator = WaviotDataUpdateCoordinator(hass, api_key, modem_id)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
-        "coordinator": coordinator,
-    }
+    hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Forward to sensor platform
+    # Forward setup to sensor platform
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
+
     return True
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload an entry."""
+    """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, ["sensor"])
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        hass.data[DOMAIN].pop(entry.entry_id)
     return unload_ok
