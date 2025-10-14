@@ -3,19 +3,18 @@ import aiohttp
 from datetime import datetime, timedelta, timezone
 import logging
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from .const import UPDATE_INTERVAL, BASE_URL, CONF_DIAGNOSTICS
+from .const import UPDATE_INTERVAL, BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
 
 class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
     """Coordinator to fetch WAVIoT modem and energy data safely."""
 
-    def __init__(self, hass, api_key, modem_id, enable_diagnostics=False):
+    def __init__(self, hass, api_key, modem_id):
         self.hass = hass
         self.api_key = api_key
         self.modem_id = modem_id
         self.data = {}
-        self.enable_diagnostics = enable_diagnostics
         super().__init__(
             hass,
             _LOGGER,
@@ -34,9 +33,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 url = f"{BASE_URL}modem/info/?id={self.modem_id.lower()}&key={self.api_key}"
                 _LOGGER.debug("Fetching modem info: %s", url)
                 async with session.get(url) as resp:
-                    text = await resp.text()
-                    if self.enable_diagnostics:
-                        _LOGGER.debug("Modem raw response: %s", text)
                     info = await resp.json()
                 modem = info.get("modem") if info else None
                 if not modem:
@@ -54,7 +50,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching modem info: %s", e)
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
 
-            # --- Energy readings (cumulative from previous year) ---
+            # --- Energy readings ---
             try:
                 channel_id = "electro_ac_p_lsum_t1"
                 now = datetime.now(tz=timezone.utc)
@@ -69,9 +65,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
 
                 readings = []
                 async with session.get(url) as resp:
-                    text = await resp.text()
-                    if self.enable_diagnostics:
-                        _LOGGER.debug("Channel raw response: %s", text)
                     ch_data = await resp.json()
                     values = ch_data.get("values", {}) if ch_data else {}
                     for ts, val in values.items():
@@ -112,20 +105,24 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
 
         latest_timestamp, latest_value = readings[-1]
         latest_dt = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
-        self.data["latest"] = latest_value  # cumulative total → Energy dashboard compatible
-        self.data["last_update"] = latest_dt
+        self.data["latest"] = latest_value
+        self.data["last_update"] = latest_dt  # keep as datetime, NOT string
 
-        # Hourly usage (informational)
-        hourly_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_hour_ago), None)
+        # Hourly usage
+        hourly_val = next(
+            (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_hour_ago), None
+        )
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
 
-        # Daily usage (informational)
-        daily_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_day_ago), None)
+        # Daily usage
+        daily_val = next(
+            (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_day_ago), None
+        )
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
 
         _LOGGER.debug(
             "Usage computed: latest=%s hourly=%s daily=%s",
-            self.data["latest"], self.data["hourly"], self.data["daily" ]
+            self.data["latest"], self.data["hourly"], self.data["daily"]
         )
 
     def _init_empty_data(self):
