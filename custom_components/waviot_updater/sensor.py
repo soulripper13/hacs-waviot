@@ -1,4 +1,4 @@
-# sensor.py - WAVIoT sensors for energy monitoring
+# sensor.py - Minimal WAVIoT sensors for energy monitoring
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
@@ -28,18 +28,6 @@ SENSOR_TYPES = {
     },
     "daily": {
         "name": "Daily Energy",
-        "unit": "kWh",
-        "device_class": "energy",
-        "state_class": "total_increasing",
-    },
-    "month_current": {
-        "name": "Current Month Energy",
-        "unit": "kWh",
-        "device_class": "energy",
-        "state_class": "total_increasing",
-    },
-    "month_previous": {
-        "name": "Previous Month Energy",
         "unit": "kWh",
         "device_class": "energy",
         "state_class": "total_increasing",
