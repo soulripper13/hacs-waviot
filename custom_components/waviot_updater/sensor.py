@@ -1,30 +1,53 @@
-# sensor.py - defines sensors for WAVIoT
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.const import DEVICE_CLASS_VOLTAGE, DEVICE_CLASS_TEMPERATURE, DEVICE_CLASS_ENERGY, UNIT_KILOWATT_HOUR, UNIT_VOLT
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+# sensor.py
+from homeassistant.helpers.entity import Entity
+from homeassistant.const import DEVICE_CLASS_BATTERY, DEVICE_CLASS_ENERGY, TEMP_CELSIUS, ENERGY_KILO_WATT_HOUR
+from .const import DOMAIN
 
-SENSOR_TYPES = {
-    "battery": {"name": "Battery Voltage", "unit": UNIT_VOLT, "device_class": DEVICE_CLASS_VOLTAGE, "state_class": None},
-    "temperature": {"name": "Temperature", "unit": "°C", "device_class": DEVICE_CLASS_TEMPERATURE, "state_class": None},
-    "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp", "state_class": None},
-    "latest": {"name": "Total Energy", "unit": UNIT_KILOWATT_HOUR, "device_class": DEVICE_CLASS_ENERGY, "state_class": "total_increasing"},
-    "hourly": {"name": "Hourly Energy", "unit": UNIT_KILOWATT_HOUR, "device_class": DEVICE_CLASS_ENERGY, "state_class": "total"},
-    "daily": {"name": "Daily Energy", "unit": UNIT_KILOWATT_HOUR, "device_class": DEVICE_CLASS_ENERGY, "state_class": "total"},
-}
+SENSORS = [
+    {"key": "battery", "name": "Battery Voltage", "unit": "V", "device_class": DEVICE_CLASS_BATTERY, "state_class": None},
+    {"key": "temperature", "name": "Temperature", "unit": TEMP_CELSIUS, "device_class": None, "state_class": None},
+    {"key": "latest", "name": "Last Reading", "unit": ENERGY_KILO_WATT_HOUR, "device_class": DEVICE_CLASS_ENERGY, "state_class": "total_increasing"},
+    {"key": "hourly", "name": "Hourly Energy", "unit": ENERGY_KILO_WATT_HOUR, "device_class": DEVICE_CLASS_ENERGY, "state_class": "measurement"},
+    {"key": "daily", "name": "Daily Energy", "unit": ENERGY_KILO_WATT_HOUR, "device_class": DEVICE_CLASS_ENERGY, "state_class": "measurement"},
+]
 
-class WaviotSensor(CoordinatorEntity, SensorEntity):
-    def __init__(self, coordinator, sensor_type):
-        super().__init__(coordinator)
-        self.sensor_type = sensor_type
-        self._attr_name = SENSOR_TYPES[sensor_type]["name"]
-        self._attr_unit_of_measurement = SENSOR_TYPES[sensor_type]["unit"]
-        self._attr_device_class = SENSOR_TYPES[sensor_type]["device_class"]
-        self._attr_state_class = SENSOR_TYPES[sensor_type]["state_class"]
+async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
+    entry_id = discovery_info["entry_id"] if discovery_info else None
+    coordinator = hass.data[DOMAIN][entry_id]
+    async_add_entities([WaviotSensor(coordinator, s["key"], s["name"], s["unit"], s["device_class"], s["state_class"]) for s in SENSORS])
+
+class WaviotSensor(Entity):
+    def __init__(self, coordinator, key, name, unit, device_class, state_class):
+        self.coordinator = coordinator
+        self._key = key
+        self._name = name
+        self._unit = unit
+        self._device_class = device_class
+        self._state_class = state_class
+
+    @property
+    def name(self):
+        return self._name
 
     @property
     def state(self):
-        value = self.coordinator.data.get(self.sensor_type)
-        if self.sensor_type == "last_update" and value:
-            return value.isoformat()
-        return value
+        return self.coordinator.data.get(self._key)
 
+    @property
+    def unit_of_measurement(self):
+        return self._unit
+
+    @property
+    def device_class(self):
+        return self._device_class
+
+    @property
+    def state_class(self):
+        return self._state_class
+
+    @property
+    def available(self):
+        return bool(self.coordinator.data)
+
+    async def async_update(self):
+        await self.coordinator.async_request_refresh()
