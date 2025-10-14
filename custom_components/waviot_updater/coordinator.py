@@ -1,4 +1,4 @@
-# coordinator.py - Fetches WAVIoT modem data from the beginning of the current year up to now
+# coordinator.py - Fetches WAVIoT modem data for the last 30 days
 import aiohttp
 from datetime import datetime, timedelta, timezone
 import logging
@@ -51,18 +51,18 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching modem info: %s", e)
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
 
-            # --- Energy readings (from Jan 1 current year) ---
+            # --- Energy readings (last 30 days) ---
             try:
                 channel_id = "electro_ac_p_lsum_t1"
                 now = datetime.now(tz=timezone.utc)
-                current_year_start = datetime(now.year, 1, 1, tzinfo=timezone.utc)
+                thirty_days_ago = now - timedelta(days=30)
 
                 url = (
                     f"{BASE_URL}data/get_modem_channel_values/"
                     f"?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
-                    f"&from={int(current_year_start.timestamp())}&to={int(now.timestamp())}"
+                    f"&from={int(thirty_days_ago.timestamp())}&to={int(now.timestamp())}"
                 )
-                _LOGGER.debug("Fetching readings from current year start: %s", url)
+                _LOGGER.debug("Fetching readings from last 30 days: %s", url)
 
                 readings = []
                 async with session.get(url) as resp:
@@ -73,7 +73,8 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                             ts_sec = int(ts)
                             if ts_sec > 1e12:  # milliseconds → seconds
                                 ts_sec //= 1000
-                            readings.append((ts_sec, float(val)))
+                            if ts_sec >= int(thirty_days_ago.timestamp()):
+                                readings.append((ts_sec, float(val)))
                         except Exception as ex:
                             _LOGGER.warning("Skipping invalid reading ts=%s val=%s (%s)", ts, val, ex)
 
