@@ -1,39 +1,63 @@
-# sensor.py - WAVIoT sensors for Home Assistant
+# sensor.py - WAVIoT sensors for energy monitoring
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
 SENSOR_TYPES = {
-    "battery": {"name": "Battery Voltage", "unit": "V", "device_class": "voltage"},
-    "temperature": {"name": "Temperature", "unit": "°C", "device_class": "temperature"},
+    "battery": {
+        "name": "Battery Voltage",
+        "unit": "V",
+        "device_class": "voltage",
+    },
+    "temperature": {
+        "name": "Temperature",
+        "unit": "°C",
+        "device_class": "temperature",
+    },
     "latest": {
         "name": "Total Energy",
         "unit": "kWh",
         "device_class": "energy",
-        "state_class": "total_increasing",  # Required for Energy Dashboard
+        "state_class": "total_increasing",
     },
     "hourly": {
-        "name": "Hourly Usage",
+        "name": "Hourly Energy",
         "unit": "kWh",
         "device_class": "energy",
-        "state_class": "measurement",
+        "state_class": "total_increasing",
     },
     "daily": {
-        "name": "Daily Usage",
+        "name": "Daily Energy",
         "unit": "kWh",
         "device_class": "energy",
-        "state_class": "measurement",
+        "state_class": "total_increasing",
     },
-    "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp"},
+    "month_current": {
+        "name": "Current Month Energy",
+        "unit": "kWh",
+        "device_class": "energy",
+        "state_class": "total_increasing",
+    },
+    "month_previous": {
+        "name": "Previous Month Energy",
+        "unit": "kWh",
+        "device_class": "energy",
+        "state_class": "total_increasing",
+    },
+    "last_update": {
+        "name": "Last Reading",
+        "device_class": "timestamp",
+        "unit": None,
+    },
 }
 
+
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up WAVIoT sensors for a modem entry."""
+    """Set up WAVIoT sensors from config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    sensors = []
-    for key, meta in SENSOR_TYPES.items():
-        sensors.append(WaviotSensor(coordinator, key, meta))
+    sensors = [WaviotSensor(coordinator, key, meta) for key, meta in SENSOR_TYPES.items()]
     async_add_entities(sensors, update_before_add=True)
+
 
 class WaviotSensor(CoordinatorEntity, SensorEntity):
     """Representation of a WAVIoT sensor."""
@@ -61,7 +85,11 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         value = self.coordinator.data.get(self.sensor_type)
-        # Convert last_update datetime to proper UTC for timestamp sensor
-        if self.sensor_type == "last_update" and value is not None:
-            return value.isoformat()
+        # Ensure timestamp sensor returns datetime object
+        if self.sensor_type == "last_update" and isinstance(value, str):
+            from datetime import datetime
+            try:
+                return datetime.fromisoformat(value)
+            except Exception:
+                return None
         return value
