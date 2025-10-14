@@ -1,4 +1,4 @@
-# sensor.py - WAVIoT sensors using CoordinatorEntity
+# sensor.py - WAVIoT sensors for Home Assistant
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
@@ -6,14 +6,29 @@ from .const import DOMAIN
 SENSOR_TYPES = {
     "battery": {"name": "Battery Voltage", "unit": "V", "device_class": "voltage"},
     "temperature": {"name": "Temperature", "unit": "°C", "device_class": "temperature"},
-    "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy", "state_class": "total_increasing"},
-    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy", "state_class": "total_increasing"},
-    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy", "state_class": "total_increasing"},
+    "latest": {
+        "name": "Total Energy",
+        "unit": "kWh",
+        "device_class": "energy",
+        "state_class": "total_increasing",  # Required for Energy Dashboard
+    },
+    "hourly": {
+        "name": "Hourly Usage",
+        "unit": "kWh",
+        "device_class": "energy",
+        "state_class": "measurement",
+    },
+    "daily": {
+        "name": "Daily Usage",
+        "unit": "kWh",
+        "device_class": "energy",
+        "state_class": "measurement",
+    },
     "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp"},
 }
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors for a WAVIoT modem entry."""
+    """Set up WAVIoT sensors for a modem entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     sensors = []
     for key, meta in SENSOR_TYPES.items():
@@ -46,16 +61,7 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
     def native_value(self):
         """Return the state of the sensor."""
         value = self.coordinator.data.get(self.sensor_type)
-
-        # last_update should be datetime, not string
+        # Convert last_update datetime to proper UTC for timestamp sensor
         if self.sensor_type == "last_update" and value is not None:
             return value.isoformat()
-
         return value
-
-    @property
-    def extra_state_attributes(self):
-        """Expose readings as an attribute for templates."""
-        if self.sensor_type in ["latest", "hourly", "daily"]:
-            return {"readings": self.coordinator.data.get("readings", {})}
-        return None
