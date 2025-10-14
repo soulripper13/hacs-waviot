@@ -1,11 +1,10 @@
-# __init__.py - WAVIoT integration (sensors only)
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from .const import DOMAIN, CONF_API_KEY, CONF_MODEM_ID
 from .coordinator import WaviotDataUpdateCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up WAVIoT integration from config entry."""
+    """Set up WAVIoT integration from a config entry."""
     api_key = entry.data[CONF_API_KEY]
     modem_id = entry.data[CONF_MODEM_ID]
 
@@ -15,7 +14,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Forward setup to sensor platform only
+    # Forward setup to sensor platform
     await hass.config_entries.async_forward_entry_setups(entry, ["sensor"])
 
     return True
