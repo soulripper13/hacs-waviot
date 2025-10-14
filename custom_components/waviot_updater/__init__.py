@@ -1,6 +1,7 @@
-# __init__.py - Used constants for data keys
+# __init__.py - WAVIoT integration
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.exceptions import ConfigEntryNotReady
 from .const import DOMAIN, CONF_API_KEY, CONF_MODEM_ID
 from .coordinator import WaviotDataUpdateCoordinator
 
@@ -10,7 +11,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     modem_id = entry.data[CONF_MODEM_ID]
 
     coordinator = WaviotDataUpdateCoordinator(hass, api_key, modem_id)
-    await coordinator.async_config_entry_first_refresh()
+
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except Exception as e:
+        raise ConfigEntryNotReady(f"Failed to fetch initial data: {e}")
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
@@ -23,6 +28,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, ["sensor"])
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+    if unload_ok and DOMAIN in hass.data:
+        hass.data[DOMAIN].pop(entry.entry_id, None)
     return unload_ok
