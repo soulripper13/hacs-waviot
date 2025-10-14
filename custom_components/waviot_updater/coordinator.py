@@ -30,7 +30,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         async with aiohttp.ClientSession() as session:
             # --- Modem info ---
             try:
-                url = f"{BASE_URL}info/?id={self.modem_id}&key={self.api_key}"
+                url = f"{BASE_URL}modem/info/?id={self.modem_id.lower()}&key={self.api_key}"
                 async with session.get(url) as resp:
                     info = await resp.json()
                 modem = info.get("modem") if info else {}
