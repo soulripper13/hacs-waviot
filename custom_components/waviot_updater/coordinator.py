@@ -1,14 +1,13 @@
-# coordinator.py
 import aiohttp
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import datetime, timedelta, timezone
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from .const import UPDATE_INTERVAL, BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
 
 class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch WAVIoT modem and energy data safely for last 30 days."""
+    """Coordinator to fetch WAVIoT modem and energy data safely."""
 
     def __init__(self, hass, api_key, modem_id):
         self.hass = hass
@@ -23,7 +22,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self):
-        """Fetch modem info and channel readings safely."""
+        """Fetch modem info and channel readings for last 30 days."""
         if self.data is None:
             self.data = {}
 
@@ -36,7 +35,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
 
                 modem = info.get("modem") if info else None
                 if not modem:
-                    _LOGGER.warning("No modem data returned from API")
                     self._init_empty_data()
                     return self.data
 
@@ -49,7 +47,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching modem info: %s", e)
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
 
-            # --- Energy readings (last 30 days) ---
+            # --- Energy readings last 30 days ---
             try:
                 channel_id = "electro_ac_p_lsum_t1"
                 now = datetime.now(tz=timezone.utc)
@@ -82,13 +80,13 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching channel values: %s", e)
                 self.data["readings"] = []
 
-            # --- Compute latest, hourly, daily usage ---
+            # --- Compute usage ---
             self._compute_usage()
 
         return self.data
 
     def _compute_usage(self):
-        """Compute latest, hourly, and daily usage only."""
+        """Compute latest, hourly, and daily usage."""
         readings = self.data.get("readings", [])
         if not readings:
             self._init_empty_data()
@@ -99,17 +97,16 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         one_day_ago = now - timedelta(days=1)
 
         latest_timestamp, latest_value = readings[-1]
+        latest_dt = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
         self.data["latest"] = latest_value
-        self.data["last_update"] = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
+        self.data["last_update"] = latest_dt
 
-        # Hourly usage
         hourly_val = next(
             (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_hour_ago),
             None
         )
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
 
-        # Daily usage
         daily_val = next(
             (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_day_ago),
             None
@@ -117,7 +114,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
 
     def _init_empty_data(self):
-        """Initialize empty data dict."""
         self.data.update({
             "battery": None,
             "temperature": None,
