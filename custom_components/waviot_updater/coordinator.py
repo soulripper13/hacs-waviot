@@ -3,7 +3,7 @@ import aiohttp
 import logging
 from datetime import datetime, timedelta, timezone
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
-from homeassistant.util.dt import utc_to_local, utcnow
+from homeassistant.util.dt import as_local, utcnow
 from .const import UPDATE_INTERVAL, BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -120,14 +120,14 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             return
 
         # Use HA server local time for comparisons
-        now_local = utc_to_local(datetime.now(timezone.utc))
+        now_local = as_local(datetime.now(timezone.utc))
         one_hour_ago_local = now_local - timedelta(hours=1)
         one_day_ago_local = now_local - timedelta(days=1)
 
         # Latest reading is last in list (API returns cumulative kWh)
         latest_ts_utc, latest_value = readings[-1]
         # convert to local datetime
-        last_update_local = utc_to_local(datetime.fromtimestamp(latest_ts_utc, tz=timezone.utc))
+        last_update_local = as_local(datetime.fromtimestamp(latest_ts_utc, tz=timezone.utc))
 
         # latest cumulative total (kWh)
         self.data["latest"] = latest_value
@@ -136,7 +136,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         # find last reading <= one_hour_ago_local
         hourly_prev = None
         for ts, val in reversed(readings):
-            ts_local = utc_to_local(datetime.fromtimestamp(ts, tz=timezone.utc))
+            ts_local = as_local(datetime.fromtimestamp(ts, tz=timezone.utc))
             if ts_local <= one_hour_ago_local:
                 hourly_prev = val
                 break
@@ -145,7 +145,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         # find last reading <= one_day_ago_local
         daily_prev = None
         for ts, val in reversed(readings):
-            ts_local = utc_to_local(datetime.fromtimestamp(ts, tz=timezone.utc))
+            ts_local = as_local(datetime.fromtimestamp(ts, tz=timezone.utc))
             if ts_local <= one_day_ago_local:
                 daily_prev = val
                 break
