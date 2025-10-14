@@ -1,17 +1,17 @@
-# sensor.py - Fixed subscriptable error, modernized to use SensorEntity and CoordinatorEntity, added device_info, removed unnecessary methods
+# sensor.py - WAVIoT sensors with hourly, daily, and cumulative total
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
+
 SENSOR_TYPES = {
     "battery": {"name": "Battery Voltage", "unit": "V", "device_class": "voltage"},
     "temperature": {"name": "Temperature", "unit": "°C", "device_class": "temperature"},
-    "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy", "state_class": "total_increasing"},
-    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
-    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
-    "month_current": {"name": "Current Month Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
-    "month_previous": {"name": "Previous Month Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
+    "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy", "state_class": SensorStateClass.TOTAL_INCREASING},
+    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy", "state_class": SensorStateClass.MEASUREMENT},
+    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy", "state_class": SensorStateClass.MEASUREMENT},
     "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp"},
 }
+
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up sensors for a Waviot modem entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
@@ -19,9 +19,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
     for key, meta in SENSOR_TYPES.items():
         sensors.append(WaviotSensor(coordinator, key, meta))
     async_add_entities(sensors, update_before_add=True)
+
 class WaviotSensor(CoordinatorEntity, SensorEntity):
     """Representation of a WAVIoT sensor."""
+
     _attr_has_entity_name = True
+
     def __init__(self, coordinator, sensor_type, meta):
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -38,7 +41,11 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
             "model": "Modem",
             "manufacturer": "WAVIoT",
         }
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return self.coordinator.data.get(self.sensor_type)
+        val = self.coordinator.data.get(self.sensor_type)
+        if self.sensor_type == "last_update" and val is not None:
+            return val.isoformat()
+        return val

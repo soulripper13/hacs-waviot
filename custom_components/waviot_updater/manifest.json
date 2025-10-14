@@ -1,11 +1,14 @@
 {
   "domain": "waviot_updater",
   "name": "WAVIoT Updater",
-  "version": "1.0.0",
-  "documentation": "https://github.com/soulripper13/hacs-waviot",
-  "requirements": ["aiohttp"],
-  "codeowners": ["@soulripper13"],
-  "config_flow": true,
-  "iot_class": "cloud_polling",
-  "homeassistant": "2023.12.0"
+  "version": "1.1.0",
+  "documentation": "https://github.com/soulripper13/waviot_updater",
+  "requirements": [
+    "aiohttp"
+  ],
+  "dependencies": [],
+  "codeowners": [
+    "@soulripper13"
+  ],
+  "iot_class": "cloud_polling"
 }

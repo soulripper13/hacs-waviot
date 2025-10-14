@@ -1,0 +1,8 @@
+{
+  "name": "WAVIoT Updater",
+  "content_in_root": false,
+  "domains": [
+    "integration"
+  ],
+  "homeassistant": "2022.12.0"
+}
