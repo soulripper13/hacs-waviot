@@ -1,83 +1,93 @@
-# sensor.py - Minimal WAVIoT sensors for energy monitoring
-from homeassistant.components.sensor import SensorEntity
+# sensor.py - WAVIoT sensors
+from homeassistant.helpers.entity import Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import ENERGY_KILO_WATT_HOUR, TEMP_CELSIUS
+
 from .const import DOMAIN
 
+STATE_CLASS_TOTAL = "total_increasing"
+
 SENSOR_TYPES = {
+    "latest": {
+        "name": "Total Energy",
+        "unit": ENERGY_KILO_WATT_HOUR,
+        "device_class": "energy",
+        "state_class": STATE_CLASS_TOTAL,
+    },
+    "hourly": {
+        "name": "Hourly Usage",
+        "unit": ENERGY_KILO_WATT_HOUR,
+        "device_class": "energy",
+        "state_class": STATE_CLASS_TOTAL,
+    },
+    "daily": {
+        "name": "Daily Usage",
+        "unit": ENERGY_KILO_WATT_HOUR,
+        "device_class": "energy",
+        "state_class": STATE_CLASS_TOTAL,
+    },
     "battery": {
-        "name": "Battery Voltage",
-        "unit": "V",
-        "device_class": "voltage",
+        "name": "Battery",
+        "unit": "%",
+        "device_class": None,
+        "state_class": None,
     },
     "temperature": {
         "name": "Temperature",
-        "unit": "°C",
+        "unit": TEMP_CELSIUS,
         "device_class": "temperature",
-    },
-    "latest": {
-        "name": "Total Energy",
-        "unit": "kWh",
-        "device_class": "energy",
-        "state_class": "total_increasing",
-    },
-    "hourly": {
-        "name": "Hourly Energy",
-        "unit": "kWh",
-        "device_class": "energy",
-        "state_class": "total_increasing",
-    },
-    "daily": {
-        "name": "Daily Energy",
-        "unit": "kWh",
-        "device_class": "energy",
-        "state_class": "total_increasing",
-    },
-    "last_update": {
-        "name": "Last Reading",
-        "device_class": "timestamp",
-        "unit": None,
+        "state_class": None,
     },
 }
 
-
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up WAVIoT sensors from config entry."""
+    """Set up WAVIoT sensors from coordinator."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    sensors = [WaviotSensor(coordinator, key, meta) for key, meta in SENSOR_TYPES.items()]
-    async_add_entities(sensors, update_before_add=True)
+
+    entities = []
+    for key in SENSOR_TYPES:
+        entities.append(WaviotSensor(coordinator, key))
+
+    async_add_entities(entities, True)
 
 
 class WaviotSensor(CoordinatorEntity, SensorEntity):
     """Representation of a WAVIoT sensor."""
 
-    _attr_has_entity_name = True
-
-    def __init__(self, coordinator, sensor_type, meta):
-        """Initialize the sensor."""
+    def __init__(self, coordinator, sensor_type):
         super().__init__(coordinator)
         self.sensor_type = sensor_type
-        self.meta = meta
-        self._attr_name = meta["name"]
-        self._attr_unique_id = f"{coordinator.modem_id}_{sensor_type}"
-        self._attr_device_class = meta.get("device_class")
-        self._attr_native_unit_of_measurement = meta.get("unit")
-        self._attr_state_class = meta.get("state_class")
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, coordinator.modem_id)},
-            "name": f"WAVIoT Modem {coordinator.modem_id}",
-            "model": "Modem",
-            "manufacturer": "WAVIoT",
-        }
+        self._attr_name = f"WAVIoT {SENSOR_TYPES[sensor_type]['name']}"
+        self._attr_unit_of_measurement = SENSOR_TYPES[sensor_type]["unit"]
+        self._attr_device_class = SENSOR_TYPES[sensor_type]["device_class"]
+        self._attr_state_class = SENSOR_TYPES[sensor_type]["state_class"]
 
     @property
-    def native_value(self):
-        """Return the state of the sensor."""
-        value = self.coordinator.data.get(self.sensor_type)
-        # Ensure timestamp sensor returns datetime object
-        if self.sensor_type == "last_update" and isinstance(value, str):
-            from datetime import datetime
-            try:
-                return datetime.fromisoformat(value)
-            except Exception:
-                return None
-        return value
+    def state(self):
+        data = self.coordinator.data
+        if not data:
+            return None
+
+        if self.sensor_type == "latest":
+            return data.get("latest")
+        if self.sensor_type == "hourly":
+            return data.get("hourly")
+        if self.sensor_type == "daily":
+            return data.get("daily")
+        if self.sensor_type == "battery":
+            return data.get("battery")
+        if self.sensor_type == "temperature":
+            return data.get("temperature")
+        return None
+
+    @property
+    def extra_state_attributes(self):
+        # only add last_update timestamp
+        data = self.coordinator.data
+        if not data:
+            return {}
+        last_update = data.get("last_update")
+        if last_update:
+            return {"last_update": last_update.isoformat()}
+        return {}
