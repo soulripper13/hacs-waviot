@@ -1,4 +1,4 @@
-# sensor.py - WAVIoT sensors with hourly, daily, and cumulative total
+# sensor.py - Updated to return datetime object for last_update
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
@@ -20,13 +20,12 @@ async def async_setup_entry(hass, entry, async_add_entities):
         sensors.append(WaviotSensor(coordinator, key, meta))
     async_add_entities(sensors, update_before_add=True)
 
+
 class WaviotSensor(CoordinatorEntity, SensorEntity):
     """Representation of a WAVIoT sensor."""
-
     _attr_has_entity_name = True
 
     def __init__(self, coordinator, sensor_type, meta):
-        """Initialize the sensor."""
         super().__init__(coordinator)
         self.sensor_type = sensor_type
         self.meta = meta
@@ -45,7 +44,13 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        val = self.coordinator.data.get(self.sensor_type)
-        if self.sensor_type == "last_update" and val is not None:
-            return val.isoformat()
-        return val
+        value = self.coordinator.data.get(self.sensor_type)
+
+        # For last_update ensure it's a datetime object
+        if self.sensor_type == "last_update" and value is not None and isinstance(value, str):
+            try:
+                value = datetime.fromisoformat(value)
+            except Exception:
+                value = None
+
+        return value
