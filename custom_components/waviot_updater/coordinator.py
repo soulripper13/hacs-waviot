@@ -1,7 +1,9 @@
+# coordinator.py - Fetches WAVIoT modem data for the last 30 days
 import aiohttp
 import logging
 from datetime import datetime, timedelta, timezone
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util.dt import utc_to_local
 from .const import UPDATE_INTERVAL, BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,19 +24,17 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         )
 
     async def _async_update_data(self):
-        """Fetch modem info and channel readings for last 30 days."""
-        if self.data is None:
-            self.data = {}
-
+        """Fetch modem info and channel readings safely."""
         async with aiohttp.ClientSession() as session:
             # --- Modem info ---
             try:
                 url = f"{BASE_URL}modem/info/?id={self.modem_id.lower()}&key={self.api_key}"
+                _LOGGER.debug("Fetching modem info: %s", url)
                 async with session.get(url) as resp:
                     info = await resp.json()
-
                 modem = info.get("modem") if info else None
                 if not modem:
+                    _LOGGER.warning("No modem data returned from API")
                     self._init_empty_data()
                     return self.data
 
@@ -47,10 +47,10 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching modem info: %s", e)
                 raise UpdateFailed(f"Failed fetching modem info: {e}")
 
-            # --- Energy readings last 30 days ---
+            # --- Energy readings (last 30 days) ---
             try:
                 channel_id = "electro_ac_p_lsum_t1"
-                now = datetime.now(tz=timezone.utc)
+                now = datetime.now(timezone.utc)
                 thirty_days_ago = now - timedelta(days=30)
 
                 url = (
@@ -58,6 +58,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                     f"?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
                     f"&from={int(thirty_days_ago.timestamp())}&to={int(now.timestamp())}"
                 )
+                _LOGGER.debug("Fetching readings from last 30 days: %s", url)
 
                 readings = []
                 async with session.get(url) as resp:
@@ -66,7 +67,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                     for ts, val in values.items():
                         try:
                             ts_sec = int(ts)
-                            if ts_sec > 1e12:
+                            if ts_sec > 1e12:  # milliseconds → seconds
                                 ts_sec //= 1000
                             if ts_sec >= int(thirty_days_ago.timestamp()):
                                 readings.append((ts_sec, float(val)))
@@ -80,40 +81,45 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching channel values: %s", e)
                 self.data["readings"] = []
 
-            # --- Compute usage ---
+            # --- Compute usage metrics ---
             self._compute_usage()
 
         return self.data
 
     def _compute_usage(self):
-        """Compute latest, hourly, and daily usage."""
+        """Compute latest, hourly, and daily usage in HA server time."""
         readings = self.data.get("readings", [])
         if not readings:
             self._init_empty_data()
             return
 
-        now = datetime.now(tz=timezone.utc)
+        now = utc_to_local(datetime.utcnow())
         one_hour_ago = now - timedelta(hours=1)
         one_day_ago = now - timedelta(days=1)
 
         latest_timestamp, latest_value = readings[-1]
-        latest_dt = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
+        latest_dt = utc_to_local(datetime.fromtimestamp(latest_timestamp, timezone.utc))
         self.data["latest"] = latest_value
         self.data["last_update"] = latest_dt
 
+        # Hourly usage
         hourly_val = next(
-            (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_hour_ago),
+            (v for t, v in reversed(readings)
+             if utc_to_local(datetime.fromtimestamp(t, timezone.utc)) <= one_hour_ago),
             None
         )
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
 
+        # Daily usage
         daily_val = next(
-            (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_day_ago),
+            (v for t, v in reversed(readings)
+             if utc_to_local(datetime.fromtimestamp(t, timezone.utc)) <= one_day_ago),
             None
         )
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
 
     def _init_empty_data(self):
+        """Initialize empty data dict."""
         self.data.update({
             "battery": None,
             "temperature": None,
