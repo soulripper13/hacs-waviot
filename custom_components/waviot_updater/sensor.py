@@ -1,3 +1,4 @@
+# sensor.py - WAVIoT sensors
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
@@ -6,16 +7,14 @@ SENSOR_TYPES = {
     "battery": {"name": "Battery Voltage", "unit": "V", "device_class": "voltage"},
     "temperature": {"name": "Temperature", "unit": "°C", "device_class": "temperature"},
     "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy", "state_class": SensorStateClass.TOTAL_INCREASING},
-    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": None, "state_class": SensorStateClass.MEASUREMENT},
-    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": None, "state_class": SensorStateClass.MEASUREMENT},
+    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy", "state_class": None},
+    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy", "state_class": None},
     "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp"},
 }
 
 async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    sensors = []
-    for key, meta in SENSOR_TYPES.items():
-        sensors.append(WaviotSensor(coordinator, key, meta))
+    sensors = [WaviotSensor(coordinator, key, meta) for key, meta in SENSOR_TYPES.items()]
     async_add_entities(sensors, update_before_add=True)
 
 class WaviotSensor(CoordinatorEntity, SensorEntity):
@@ -40,11 +39,8 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         value = self.coordinator.data.get(self.sensor_type)
+        # Ensure timestamp is a datetime object for 'timestamp' device class
         if self.sensor_type == "last_update" and isinstance(value, str):
-            # convert string to datetime if needed
             from datetime import datetime
-            try:
-                value = datetime.fromisoformat(value)
-            except Exception:
-                return None
+            value = datetime.fromisoformat(value)
         return value
