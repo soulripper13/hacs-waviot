@@ -1,16 +1,16 @@
 # __init__.py - WAVIoT integration
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from .const import DOMAIN, CONF_API_KEY, CONF_MODEM_ID, CONF_DIAGNOSTICS
+from .const import DOMAIN, CONF_API_KEY, CONF_MODEM_ID
 from .coordinator import WaviotDataUpdateCoordinator
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up WAVIoT integration from config entry."""
     api_key = entry.data[CONF_API_KEY]
     modem_id = entry.data[CONF_MODEM_ID]
-    enable_diag = entry.options.get(CONF_DIAGNOSTICS, False)
 
-    coordinator = WaviotDataUpdateCoordinator(hass, api_key, modem_id, enable_diag)
+    # Initialize coordinator without enable_diag
+    coordinator = WaviotDataUpdateCoordinator(hass, api_key, modem_id)
     await coordinator.async_config_entry_first_refresh()
 
     hass.data.setdefault(DOMAIN, {})
