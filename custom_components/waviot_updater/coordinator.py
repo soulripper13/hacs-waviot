@@ -1,4 +1,4 @@
-# coordinator.py - Fetches WAVIoT modem data from previous year up to now
+# coordinator.py - Fetches WAVIoT modem data from the beginning of the previous year up to now
 import aiohttp
 from datetime import datetime, timedelta, timezone
 import logging
@@ -45,6 +45,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 temperature = modem.get("temperature")
                 self.data["battery"] = float(battery_raw) if battery_raw is not None else None
                 self.data["temperature"] = temperature
+                _LOGGER.debug("Battery: %s, Temperature: %s", self.data["battery"], temperature)
 
             except Exception as e:
                 _LOGGER.error("Exception fetching modem info: %s", e)
@@ -59,7 +60,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 url = (
                     f"{BASE_URL}data/get_modem_channel_values/"
                     f"?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
-                    f"&start={int(prev_year_start.timestamp())}&end={int(now.timestamp())}"
+                    f"&from={int(prev_year_start.timestamp())}&to={int(now.timestamp())}"
                 )
                 _LOGGER.debug("Fetching readings from beginning of previous year: %s", url)
 
@@ -70,7 +71,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                     for ts, val in values.items():
                         try:
                             ts_sec = int(ts)
-                            if ts_sec > 1e12:  # convert milliseconds → seconds
+                            if ts_sec > 1e12:  # milliseconds → seconds
                                 ts_sec //= 1000
                             readings.append((ts_sec, float(val)))
                         except Exception as ex:
@@ -90,8 +91,12 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _compute_usage(self):
         """Compute latest, hourly, and daily usage only."""
+        if self.data is None:
+            self.data = {}
+
         readings = self.data.get("readings", [])
         if not readings:
+            _LOGGER.debug("No readings available to compute usage.")
             self._init_empty_data()
             return
 
@@ -107,16 +112,21 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         # Hourly usage
         hourly_val = next(
             (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_hour_ago),
-            None,
+            None
         )
         self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
 
         # Daily usage
         daily_val = next(
             (v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_day_ago),
-            None,
+            None
         )
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
+
+        _LOGGER.debug(
+            "Usage computed: latest=%s hourly=%s daily=%s",
+            self.data["latest"], self.data["hourly"], self.data["daily"]
+        )
 
     def _init_empty_data(self):
         """Initialize empty data dict."""
