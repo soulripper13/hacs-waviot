@@ -1,4 +1,4 @@
-# coordinator.py - Fetches WAVIoT modem data for the last 30 days
+# coordinator.py
 import aiohttp
 from datetime import datetime, timedelta, timezone
 import logging
@@ -8,7 +8,7 @@ from .const import UPDATE_INTERVAL, BASE_URL
 _LOGGER = logging.getLogger(__name__)
 
 class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
-    """Coordinator to fetch WAVIoT modem and energy data safely."""
+    """Coordinator to fetch WAVIoT modem and energy data safely for last 30 days."""
 
     def __init__(self, hass, api_key, modem_id):
         self.hass = hass
@@ -31,7 +31,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             # --- Modem info ---
             try:
                 url = f"{BASE_URL}modem/info/?id={self.modem_id.lower()}&key={self.api_key}"
-                _LOGGER.debug("Fetching modem info: %s", url)
                 async with session.get(url) as resp:
                     info = await resp.json()
 
@@ -45,7 +44,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 temperature = modem.get("temperature")
                 self.data["battery"] = float(battery_raw) if battery_raw is not None else None
                 self.data["temperature"] = temperature
-                _LOGGER.debug("Battery: %s, Temperature: %s", self.data["battery"], temperature)
 
             except Exception as e:
                 _LOGGER.error("Exception fetching modem info: %s", e)
@@ -62,7 +60,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                     f"?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
                     f"&from={int(thirty_days_ago.timestamp())}&to={int(now.timestamp())}"
                 )
-                _LOGGER.debug("Fetching readings from last 30 days: %s", url)
 
                 readings = []
                 async with session.get(url) as resp:
@@ -71,7 +68,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                     for ts, val in values.items():
                         try:
                             ts_sec = int(ts)
-                            if ts_sec > 1e12:  # milliseconds → seconds
+                            if ts_sec > 1e12:
                                 ts_sec //= 1000
                             if ts_sec >= int(thirty_days_ago.timestamp()):
                                 readings.append((ts_sec, float(val)))
@@ -85,19 +82,15 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching channel values: %s", e)
                 self.data["readings"] = []
 
-            # --- Compute usage metrics ---
+            # --- Compute latest, hourly, daily usage ---
             self._compute_usage()
 
         return self.data
 
     def _compute_usage(self):
         """Compute latest, hourly, and daily usage only."""
-        if self.data is None:
-            self.data = {}
-
         readings = self.data.get("readings", [])
         if not readings:
-            _LOGGER.debug("No readings available to compute usage.")
             self._init_empty_data()
             return
 
@@ -106,9 +99,8 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         one_day_ago = now - timedelta(days=1)
 
         latest_timestamp, latest_value = readings[-1]
-        latest_dt = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
         self.data["latest"] = latest_value
-        self.data["last_update"] = latest_dt
+        self.data["last_update"] = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
 
         # Hourly usage
         hourly_val = next(
@@ -123,11 +115,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             None
         )
         self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
-
-        _LOGGER.debug(
-            "Usage computed: latest=%s hourly=%s daily=%s",
-            self.data["latest"], self.data["hourly"], self.data["daily"]
-        )
 
     def _init_empty_data(self):
         """Initialize empty data dict."""
