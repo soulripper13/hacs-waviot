@@ -1,16 +1,16 @@
 # sensor.py - Fixed subscriptable error, modernized to use SensorEntity and CoordinatorEntity, added device_info, removed unnecessary methods
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
 SENSOR_TYPES = {
     "battery": {"name": "Battery Voltage", "unit": "V", "device_class": "voltage"},
     "temperature": {"name": "Temperature", "unit": "°C", "device_class": "temperature"},
-    "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy"},
-    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy"},
-    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy"},
-    "month_current": {"name": "Current Month Usage", "unit": "kWh", "device_class": "energy"},
-    "month_previous": {"name": "Previous Month Usage", "unit": "kWh", "device_class": "energy"},
+    "latest": {"name": "Total Energy", "unit": "kWh", "device_class": "energy", "state_class": "total_increasing"},
+    "hourly": {"name": "Hourly Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
+    "daily": {"name": "Daily Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
+    "month_current": {"name": "Current Month Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
+    "month_previous": {"name": "Previous Month Usage", "unit": "kWh", "device_class": "energy", "state_class": "measurement"},
     "last_update": {"name": "Last Reading", "unit": None, "device_class": "timestamp"},
 }
 
