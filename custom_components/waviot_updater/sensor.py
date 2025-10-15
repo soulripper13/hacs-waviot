@@ -1,7 +1,9 @@
-# sensor.py - Fixed subscriptable error, modernized to use SensorEntity and CoordinatorEntity, added device_info
+# sensor.py - WAVIoT sensors with safe backfill
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.event import async_call_later
 from .const import DOMAIN
+from datetime import datetime, timezone
 
 SENSOR_TYPES = {
     "battery": {
@@ -27,6 +29,7 @@ SENSOR_TYPES = {
     },
 }
 
+
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up sensors for a Waviot modem entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
@@ -35,7 +38,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class WaviotSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a WAVIoT sensor."""
+    """Representation of a WAVIoT sensor with backfill support."""
 
     _attr_has_entity_name = True
 
@@ -56,7 +59,31 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
             "manufacturer": "WAVIoT",
         }
 
+        # Schedule backfill for energy readings
+        if self.sensor_type == "latest":
+            async_call_later(self.hass, 1, self._async_backfill_recent_readings)
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
         return self.coordinator.data.get(self.sensor_type)
+
+    async def _async_backfill_recent_readings(self, _now=None):
+        """Backfill missing energy readings safely."""
+        readings = self.coordinator.data.get("readings", [])
+        entity_id = self.entity_id
+
+        for ts, value in readings:
+            dt = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+            # Only set state if not already present
+            if not self.hass.states.get(entity_id) or self.hass.states.get(entity_id).last_updated < datetime.fromtimestamp(ts, tz=timezone.utc):
+                self.hass.states.async_set(
+                    entity_id=entity_id,
+                    state=value,
+                    attributes={
+                        "unit_of_measurement": self._attr_native_unit_of_measurement,
+                        "device_class": self._attr_device_class,
+                        "friendly_name": self._attr_name,
+                        "last_update": dt,
+                    },
+                )
