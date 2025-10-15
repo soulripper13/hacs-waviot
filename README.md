@@ -57,8 +57,6 @@ After installing and restarting:
 | `sensor.waviot_<modem_id>_energy_total` | Total accumulated energy (T1) | kWh |
 | `sensor.waviot_<modem_id>_energy_hourly` | Last hour usage | kWh |
 | `sensor.waviot_<modem_id>_energy_daily` | Last 24h usage | kWh |
-| `sensor.waviot_<modem_id>_energy_month_current` | Current month usage | kWh |
-| `sensor.waviot_<modem_id>_energy_month_previous` | Previous month usage | kWh |
 | `sensor.waviot_<modem_id>_battery` | Battery voltage or percentage | % |
 | `sensor.waviot_<modem_id>_temperature` | Device temperature | °C |
 
@@ -80,7 +78,6 @@ using your **API key** and **modem ID**.
 | `sensor.waviot_86145d_energy_total` | 21149.162 | Total reading |
 | `sensor.waviot_86145d_energy_hourly` | 0.496 | Usage for last hour |
 | `sensor.waviot_86145d_energy_daily` | 7.2 | Usage for last 24h |
-| `sensor.waviot_86145d_energy_month_previous` | 243.6 | Usage in previous month |
 
 ---
 
