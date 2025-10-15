@@ -83,43 +83,28 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception fetching channel values: %s", e)
                 self.data["readings"] = []
 
-            # --- Compute usage metrics ---
-            self._compute_usage()
+            # --- Compute latest metric only ---
+            self._compute_latest()
 
         return self.data
 
-    def _compute_usage(self):
-        """Compute latest, hourly, and daily usage only."""
+    def _compute_latest(self):
+        """Compute only the latest reading value."""
         if self.data is None:
             self.data = {}
 
         readings = self.data.get("readings", [])
         if not readings:
-            _LOGGER.debug("No readings available to compute usage.")
+            _LOGGER.debug("No readings available to compute latest value.")
             self._init_empty_data()
             return
-
-        now = datetime.now(tz=timezone.utc)
-        one_hour_ago = now - timedelta(hours=1)
-        one_day_ago = now - timedelta(days=1)
 
         latest_timestamp, latest_value = readings[-1]
         latest_dt = datetime.fromtimestamp(latest_timestamp, tz=timezone.utc)
         self.data["latest"] = latest_value
         self.data["last_update"] = latest_dt
 
-        # Hourly usage
-        hourly_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_hour_ago), None)
-        self.data["hourly"] = round(latest_value - hourly_val, 3) if hourly_val is not None else None
-
-        # Daily usage
-        daily_val = next((v for t, v in reversed(readings) if datetime.fromtimestamp(t, tz=timezone.utc) <= one_day_ago), None)
-        self.data["daily"] = round(latest_value - daily_val, 3) if daily_val is not None else None
-
-        _LOGGER.debug(
-            "Usage computed: latest=%s hourly=%s daily=%s",
-            self.data["latest"], self.data["hourly"], self.data["daily"]
-        )
+        _LOGGER.debug("Latest reading computed: %s at %s", latest_value, latest_dt)
 
     def _init_empty_data(self):
         """Initialize empty data dict."""
@@ -128,7 +113,5 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             "temperature": None,
             "readings": [],
             "latest": None,
-            "hourly": None,
-            "daily": None,
             "last_update": None,
         })
