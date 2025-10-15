@@ -1,9 +1,8 @@
-# sensor.py - WAVIoT sensors with safe async backfill for last 3 months
-from datetime import datetime, timedelta, timezone
+# sensor.py - Fixed subscriptable error, modernized to use SensorEntity and CoordinatorEntity, added device_info
+
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers.event import async_call_later
-from .const import DOMAIN, BACKFILL_INTERVAL_SECONDS
+from .const import DOMAIN
 
 SENSOR_TYPES = {
     "battery": {
@@ -29,17 +28,14 @@ SENSOR_TYPES = {
     },
 }
 
-
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up sensors for a Waviot modem entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
     sensors = [WaviotSensor(coordinator, key, meta) for key, meta in SENSOR_TYPES.items()]
     async_add_entities(sensors, update_before_add=True)
 
-
 class WaviotSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a WAVIoT sensor with backfill."""
-
+    """Representation of a WAVIoT sensor."""
     _attr_has_entity_name = True
 
     def __init__(self, coordinator, sensor_type, meta):
@@ -59,36 +55,7 @@ class WaviotSensor(CoordinatorEntity, SensorEntity):
             "manufacturer": "WAVIoT",
         }
 
-    async def async_added_to_hass(self):
-        """Called when entity is added to hass."""
-        await super().async_added_to_hass()
-        # Schedule backfill after the entity is fully added
-        self.hass.async_create_task(self._async_backfill_recent_readings())
-
     @property
     def native_value(self):
-        """Return the current sensor value."""
+        """Return the state of the sensor."""
         return self.coordinator.data.get(self.sensor_type)
-
-    async def _async_backfill_recent_readings(self):
-        """Fetch and add past readings (last 3 months) safely."""
-        coordinator = self.coordinator
-        if not hasattr(coordinator, "data") or "readings" not in coordinator.data:
-            return
-
-        # Calculate 3 months ago
-        now = datetime.now(tz=timezone.utc)
-        three_months_ago = now - timedelta(days=90)
-
-        backfill_readings = []
-        for ts, val in coordinator.data.get("readings", []):
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
-            if dt >= three_months_ago:
-                backfill_readings.append((dt, val))
-
-        # Optionally, you can store these somewhere or log them
-        if backfill_readings:
-            # Update latest reading if applicable
-            latest_dt, latest_val = backfill_readings[-1]
-            coordinator.data["latest"] = latest_val
-            coordinator.data["last_update"] = latest_dt
