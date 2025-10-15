@@ -1,4 +1,4 @@
-# coordinator.py - Fetches WAVIoT modem data and backfills from the beginning of the current year
+# coordinator.py - Fetches WAVIoT modem data for the last 3 months
 import aiohttp
 from datetime import datetime, timedelta, timezone
 import logging
@@ -54,14 +54,14 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             try:
                 channel_id = "electro_ac_p_lsum_t1"
                 now = datetime.now(tz=timezone.utc)
-                start_of_year = datetime(now.year, 1, 1, tzinfo=timezone.utc)
+                three_months_ago = now - timedelta(days=90)  # only last 3 months
 
                 url = (
                     f"{BASE_URL}data/get_modem_channel_values/"
                     f"?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
-                    f"&start={int(start_of_year.timestamp())}&end={int(now.timestamp())}"
+                    f"&start={int(three_months_ago.timestamp())}&end={int(now.timestamp())}"
                 )
-                _LOGGER.debug("Fetching readings from start of current year: %s", url)
+                _LOGGER.debug("Fetching readings for last 3 months: %s", url)
 
                 readings = []
                 async with session.get(url) as resp:
@@ -86,9 +86,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             # --- Compute latest metric only ---
             self._compute_latest()
 
-            # --- Backfill past readings into HA state machine ---
-            await self._backfill_readings()
-
         return self.data
 
     def _compute_latest(self):
@@ -108,42 +105,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
         self.data["last_update"] = latest_dt
 
         _LOGGER.debug("Latest reading computed: %s at %s", latest_value, latest_dt)
-
-    async def _backfill_readings(self):
-        """Backfill hourly readings from the beginning of the current year."""
-        readings = self.data.get("readings", [])
-        if not readings:
-            _LOGGER.debug("No readings to backfill.")
-            return
-
-        entity_id = f"sensor.waviot_{self.modem_id}_latest"
-        now = datetime.now(tz=timezone.utc)
-        start_of_year = datetime(now.year, 1, 1, tzinfo=timezone.utc)
-
-        new_readings = [
-            (ts, val) for ts, val in readings
-            if ts >= int(start_of_year.timestamp())
-        ]
-
-        _LOGGER.debug("Backfilling %d readings from %s", len(new_readings), start_of_year)
-
-        for ts, value in new_readings:
-            dt_iso = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
-            attributes = {
-                "unit_of_measurement": "kWh",
-                "friendly_name": "Total Energy",
-                "device_class": "energy",
-                "state_class": "total_increasing",
-                "last_changed": dt_iso,
-                "last_updated": dt_iso,
-            }
-
-            try:
-                await self.hass.states.async_set(entity_id, str(value), attributes=attributes)
-            except Exception as e:
-                _LOGGER.warning("Failed to backfill reading %s: %s", dt_iso, e)
-
-        _LOGGER.info("Finished backfilling readings.")
 
     def _init_empty_data(self):
         """Initialize empty data dict."""
