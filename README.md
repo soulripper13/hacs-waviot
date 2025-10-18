@@ -5,17 +5,16 @@
 ![License](https://img.shields.io/github/license/soulripper13/hacs-waviot-updater.svg)
 
 A custom Home Assistant integration to monitor **WAVIoT energy meters** via the official [curog.ru](https://lk.curog.ru) API.  
-It provides hourly, daily, and monthly electricity usage, battery level, and temperature sensors — with full UI configuration.
+It provides electricity usage, battery level, and temperature sensors — with full UI configuration.
 
 ---
 
 ## ✨ Features
 
-- 📊 **Hourly and Daily Energy Usage**  
-- 📅 **Monthly Totals** (current + previous)
+
 - 🔋 **Battery Level Sensor**  
 - 🌡️ **Temperature Sensor**
-- 🔁 Automatic updates every 10 minutes
+- 🔁 Automatic updates every 20 minutes
 - 🧠 Data fetched directly from the WAVIoT API
 - ⚙️ Full configuration via the UI
 - 🧩 HACS compatible (custom repository)
@@ -55,8 +54,6 @@ After installing and restarting:
 | Entity ID | Description | Unit |
 |------------|--------------|------|
 | `sensor.waviot_<modem_id>_energy_total` | Total accumulated energy (T1) | kWh |
-| `sensor.waviot_<modem_id>_energy_hourly` | Last hour usage | kWh |
-| `sensor.waviot_<modem_id>_energy_daily` | Last 24h usage | kWh |
 | `sensor.waviot_<modem_id>_battery` | Battery voltage or percentage | % |
 | `sensor.waviot_<modem_id>_temperature` | Device temperature | °C |
 
@@ -76,8 +73,6 @@ using your **API key** and **modem ID**.
 | Sensor | Example Value | Description |
 |---------|----------------|-------------|
 | `sensor.waviot_86145d_energy_total` | 21149.162 | Total reading |
-| `sensor.waviot_86145d_energy_hourly` | 0.496 | Usage for last hour |
-| `sensor.waviot_86145d_energy_daily` | 7.2 | Usage for last 24h |
 
 ---
 
