@@ -115,6 +115,3 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             "latest": None,
             "last_update": None,
         })
-
-
-Is this code correct for energy in home assistant?
