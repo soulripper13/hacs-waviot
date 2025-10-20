@@ -59,7 +59,7 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
                 url = (
                     f"{BASE_URL}data/get_modem_channel_values/"
                     f"?modem_id={self.modem_id}&channel={channel_id}&key={self.api_key}"
-                    f"&from={int(three_months_ago.timestamp())}&to={int(now.timestamp())}"
+                    f"&start={int(three_months_ago.timestamp())}&end={int(now.timestamp())}"
                 )
                 _LOGGER.debug("Fetching readings for last 3 months: %s", url)
 
@@ -115,3 +115,6 @@ class WaviotDataUpdateCoordinator(DataUpdateCoordinator):
             "latest": None,
             "last_update": None,
         })
+
+
+Is this code correct for energy in home assistant?
