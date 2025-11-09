@@ -88,7 +88,7 @@ using your **API key** and **modem ID**.
 ## 🧑‍💻 Developer
 
 **Author:** [soulripper13](https://github.com/soulripper13)  
-**License:** MIT  
+**License:** [license-shield]: https://img.shields.io/badge/License-MIT-green.svg
 **Repository:** [hacs-waviot-updater](https://github.com/soulripper13/hacs-waviot)
 
 ---
