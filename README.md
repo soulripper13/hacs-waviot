@@ -2,7 +2,8 @@
 
 ![HACS Badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![License](https://img.shields.io/github/license/soulripper13/hacs-waviot-updater.svg)
+[![License][license-shield]](LICENSE)
+
 
 A custom Home Assistant integration to monitor **WAVIoT energy meters** via the official [curog.ru](https://lk.curog.ru) API.  
 It provides electricity usage, battery level, and temperature sensors — with full UI configuration.
