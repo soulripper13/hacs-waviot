@@ -1,5 +1,4 @@
 # Монитор энергии WAVIoT для Home Assistant
-[![Open your Home Assistant instance and show the path to the My button.](https://my.home-assistant.io/badges/hacs_repository/hacs-waviot/soulripper13)](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
 ![HACS Badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -17,11 +16,11 @@
 ## 🧰 Установка
 ### Метод 1: HACS (Рекомендуется)
 Предпочтительный способ — использовать HACS:
-1. Найдите и загрузите эту интеграцию в вашу установку HA через HACS или нажмите:  
-   [![Открыть репозиторий HACS](https://my.home-assistant.io/badges/hacs_repository/hacs-waviot/soulripper13)](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
+1. Найдите и загрузите эту интеграцию в вашу установку HA через HACS, или нажмите:  
+   [Открыть репозиторий HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
 2. Перезапустите Home Assistant
-3. Добавьте эту интеграцию в Home Assistant или нажмите:  
-   [![Добавить интеграцию](https://my.home-assistant.io/badges/config_flow/waviot_updater)](https://my.home-assistant.io/redirect/config_flow/?domain=waviot_updater)
+3. Добавьте эту интеграцию в Home Assistant, или нажмите:  
+   [Добавить интеграцию](https://my.home-assistant.io/redirect/config_flow/?domain=waviot_updater)
 
 ### Метод 2: Ручная установка
 1. Скопируйте папку `custom_components/waviot_updater` в директорию `config/custom_components/` вашего Home Assistant.
@@ -69,7 +68,6 @@ https://lk.curog.ru/api.data/get_modem_channel_values/
 ---
 
 # WAVIoT Energy Monitor for Home Assistant
-[![Open your Home Assistant instance and show the path to the My button.](https://my.home-assistant.io/badges/hacs_repository/hacs-waviot/soulripper13)](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
 ![HACS Badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -88,10 +86,10 @@ It provides electricity usage, battery level, and temperature sensors — with f
 ### Method 1: HACS (Recommended)
 The preferred way is to use HACS:
 1. Search and download this integration to your HA installation via HACS, or click:  
-   [![Open HACS Repository](https://my.home-assistant.io/badges/hacs_repository/hacs-waviot/soulripper13)](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
+   [Open HACS Repository](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
 2. Restart Home Assistant
 3. Add this integration to Home Assistant, or click:  
-   [![Add Integration](https://my.home-assistant.io/badges/config_flow/waviot_updater)](https://my.home-assistant.io/redirect/config_flow/?domain=waviot_updater)
+   [Add Integration](https://my.home-assistant.io/redirect/config_flow/?domain=waviot_updater)
 
 ### Method 2: Manual Installation
 1. Copy the folder `custom_components/waviot_updater` into your Home Assistant `config/custom_components/` directory.
