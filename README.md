@@ -17,10 +17,10 @@
 ### Метод 1: HACS (Рекомендуется)
 Предпочтительный способ — использовать HACS:
 1. Найдите и загрузите эту интеграцию в вашу установку HA через HACS, или нажмите:  
-   [Открыть репозиторий HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
+   [![Открыть репозиторий HACS][hacs-repo-badge]](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
 2. Перезапустите Home Assistant
 3. Добавьте эту интеграцию в Home Assistant, или нажмите:  
-   [Добавить интеграцию](https://my.home-assistant.io/redirect/config_flow/?domain=waviot_updater)
+   [![Добавить интеграцию][config-flow-badge]](https://my.home-assistant.io/redirect/config_flow_start?domain=waviot_updater)
 
 ### Метод 2: Ручная установка
 1. Скопируйте папку `custom_components/waviot_updater` в директорию `config/custom_components/` вашего Home Assistant.
@@ -86,10 +86,10 @@ It provides electricity usage, battery level, and temperature sensors — with f
 ### Method 1: HACS (Recommended)
 The preferred way is to use HACS:
 1. Search and download this integration to your HA installation via HACS, or click:  
-   [Open HACS Repository](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
+   [![Open HACS Repository][hacs-repo-badge]](https://my.home-assistant.io/redirect/hacs_repository/?owner=soulripper13&repository=hacs-waviot&category=integration)
 2. Restart Home Assistant
 3. Add this integration to Home Assistant, or click:  
-   [Add Integration](https://my.home-assistant.io/redirect/config_flow/?domain=waviot_updater)
+   [![Add Integration][config-flow-badge]](https://my.home-assistant.io/redirect/config_flow_start?domain=waviot_updater)
 
 ### Method 2: Manual Installation
 1. Copy the folder `custom_components/waviot_updater` into your Home Assistant `config/custom_components/` directory.
@@ -133,3 +133,8 @@ using your **API key** and **modem ID**.
 ---
 ## 🩵 Support
 If you find this integration helpful, please ⭐️ the repo or [open an issue](https://github.com/soulripper13/hacs-waviot/issues) for suggestions and bug reports.
+
+---
+
+[hacs-repo-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
+[config-flow-badge]: https://my.home-assistant.io/badges/config_flow_start.svg
