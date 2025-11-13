@@ -1,6 +1,6 @@
 {
   "domain": "waviot_updater",
-  "name": "WAVIoT Updater",
+  "name": "Waviot Curog.ru",
   "version": "1.0.0",
   "documentation": "https://github.com/soulripper13/hacs-waviot",
   "requirements": ["aiohttp"],
