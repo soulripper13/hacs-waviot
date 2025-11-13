@@ -3,6 +3,7 @@
   "name": "Waviot Curog.ru",
   "version": "1.0.0",
   "documentation": "https://github.com/soulripper13/hacs-waviot",
+  "issue_tracker": "https://github.com/soulripper13/hacs-waviot/issues",
   "requirements": ["aiohttp"],
   "codeowners": ["@soulripper13"],
   "config_flow": true,
