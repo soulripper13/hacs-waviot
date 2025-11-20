@@ -3,9 +3,9 @@
   "name": "Waviot Curog.ru",
   "codeowners": ["@soulripper13"],
   "config_flow": true,
-  "documentation": "https://github.com/soulripper13/hacs-waviot",
+  "documentation": "https://github.com/soulripper13/hass-waviot",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/soulripper13/hacs-waviot/issues",
+  "issue_tracker": "https://github.com/soulripper13/hass-waviot/issues",
   "requirements": ["aiohttp"],
   "version": "1.0.0"
 }
